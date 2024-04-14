@@ -198,9 +198,6 @@ async def edit_variable(ctx, pre_message, key):
     elif key == "DOWNLOAD_DIR":
         if not value.endswith("/"):
             value += "/"
-    elif key in ["LEECH_DUMP_CHAT", "RSS_CHAT"]:
-        if value.isdigit() or value.startswith("-"):
-            value = int(value)
     elif key == "STATUS_UPDATE_INTERVAL":
         value = int(value)
         if len(task_dict) != 0 and (st := Intervals["status"]):
@@ -327,9 +324,6 @@ async def edit_qbit(ctx, pre_message, key):
 async def sync_jdownloader():
     if not DATABASE_URL or jdownloader.device is None:
         return
-    await jdownloader.device.system.exit_jd()
-    if await aiopath.exists("cfg.zip"):
-        await remove("cfg.zip")
     try:
         await wait_for(retry_function(jdownloader.update_devices), timeout=10)
     except:
@@ -337,7 +331,14 @@ async def sync_jdownloader():
         if not is_connected:
             LOGGER.error(jdownloader.error)
             return
-    jdownloader.boot()
+        await jdownloader.connectToDevice()
+    await jdownloader.device.system.exit_jd()
+    if await aiopath.exists("cfg.zip"):
+        await remove("cfg.zip")
+    is_connected = await jdownloader.jdconnect()
+    if not is_connected:
+        LOGGER.error(jdownloader.error)
+        return
     await jdownloader.connectToDevice()
     await (
         await create_subprocess_exec("7z", "a", "cfg.zip", "/JDownloader/cfg")
@@ -679,7 +680,7 @@ async def edit_bot_settings(ctx):
 
 async def bot_settings(ctx):
     message = ctx.event.message
-    chat_id = message.user_id or message.group_id
+    chat_id = message.group_id or message.user_id
     handler_dict[chat_id] = False
     msg, button = await get_buttons()
     globals()["START"] = 0
@@ -817,8 +818,6 @@ async def load_config():
 
     RSS_CHAT = environ.get("RSS_CHAT", "")
     RSS_CHAT = "" if len(RSS_CHAT) == 0 else RSS_CHAT
-    if RSS_CHAT.isdigit() or RSS_CHAT.startswith("-"):
-        RSS_CHAT = int(RSS_CHAT)
 
     RSS_DELAY = environ.get("RSS_DELAY", "")
     RSS_DELAY = 600 if len(RSS_DELAY) == 0 else int(RSS_DELAY)
